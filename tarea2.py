@@ -44,8 +44,8 @@ X = combined.drop(columns=["_origin"])
 y = combined["_origin"]
 
 # ── 4. Preprocessing ──────────────────────────────────────────────────────────
-categorical_cols = X.select_dtypes(include="object").columns.tolist()
-numerical_cols   = X.select_dtypes(exclude="object").columns.tolist()
+categorical_cols = X.select_dtypes(include=["object", "string"]).columns.tolist()
+numerical_cols   = X.select_dtypes(exclude=["object", "string"]).columns.tolist()
 
 preprocessor = ColumnTransformer(
     transformers=[

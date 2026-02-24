@@ -35,8 +35,8 @@ y_train = train["failure"]
 X_test  = test.drop(columns=["id"])
 
 # ── 3. Preprocessing ──────────────────────────────────────────────────────────
-categorical_cols = X_train.select_dtypes(include="object").columns.tolist()
-numerical_cols   = X_train.select_dtypes(exclude="object").columns.tolist()
+categorical_cols = X_train.select_dtypes(include=["object", "string"]).columns.tolist()
+numerical_cols   = X_train.select_dtypes(exclude=["object", "string"]).columns.tolist()
 
 preprocessor = ColumnTransformer(
     transformers=[
