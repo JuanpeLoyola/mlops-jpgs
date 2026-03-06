@@ -1,0 +1,26 @@
+Con "retrain_from_scratch": false, el output es el siguiente:
+
+{
+  "status": "activado",
+  "model_version": "v4.0-f4f282",
+  "accuracy_new": 1,
+  "accuracy_previous": 0.6,
+  "model_updated": true,
+  "message": "Nuevo modelo activado. Accuracy 1.0000 >= anterior (0.6000)"
+}
+
+Con "retrain_from_scratch": true, el output es el siguiente:
+
+{
+  "status": "activado",
+  "model_version": "v5.0-e61011",
+  "accuracy_new": 1,
+  "accuracy_previous": 1,
+  "model_updated": true,
+  "message": "Nuevo modelo activado. Accuracy 1.0000 >= anterior (1.0000)"
+}
+
+Conclusiones: Ambos dan accuracy=1.0, pero por razones distintas:
+
+- Incremental: entrena con 30 muestras (20 anteriores + 10 nuevas) y evalúa con un split de validación real → resultado fiable.
+- Desde cero: solo 10 muestras, por debajo del umbral de 20 (como viene en main.py), el servidor evalúa en el mismo train set → accuracy optimista, sin validación real.

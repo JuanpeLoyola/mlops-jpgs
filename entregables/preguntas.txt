@@ -1,0 +1,75 @@
+Pregunta 1: Cuando arrancas el servidor por primera vez sin ningún modelo previo, el sistema crea
+automáticamente un modelo base mediante el proceso de bootstrap. Si detuvieras el
+servidor, borraras la carpeta models/ y lo volvieras a arrancar, ¿obtendrías exactamente
+el mismo modelo con el mismo accuracy? Razona por qué sí o por qué no, y señala qué
+línea o parámetro del código garantiza o impide esa reproducibilidad.
+
+Respuesta: Sí, se obtiene el mismo modelo y accuracy porque bootstrap_model()
+usa random_state=42 tanto en train_test_split como en LogisticRegression. Esto fija las semillas y
+garantiza reproducibilidad determinista.
+
+Pregunta 2: El endpoint /train exige un mínimo de 5 muestras por request y además comprueba que
+haya al menos 2 clases distintas en el dataset de entrenamiento. ¿Qué pasaría si enviaras
+10 muestras perfectamente etiquetadas pero todas de la clase setosa? ¿El modelo se
+entrenaría? ¿Se activaría? Describe paso a paso qué devolvería la API y por qué tiene
+sentido esa restricción.
+
+Respuesta: El entrenamiento no se realizaría. El endpoint comprueba len(np.unique(y_train)) < 2.
+He hecho al prueba y ha saltado un error HTTP 422, siendo el output lo siguiente:
+
+{
+  "detail": "El dataset de entrenamiento debe contener al menos 2 clases distintas."
+}
+
+Por lo tanto, el modelo no se entrenaría y tampoco se activaría. La restricción tiene sentido porque
+un clasificador con 1 sola clase no puede aprender fronteras de decisión.
+
+Pregunta 3: Ejecuta la demo con --reset y observa la secuencia de versiones en el historial final. El
+modelo entrenado con muestras ruidosas aparece en el historial aunque no haya sido
+activado. ¿Por qué crees que se diseñó así, registrando también los modelos rechazados?
+¿Qué información útil proporciona ese registro que no tendríamos si solo guardáramos los
+modelos activados?
+
+Respuesta: Se registran para auditoría y trazabilidad. Permite saber qué datos degradaron el modelo, cuándo
+ocurrió, y ayuda a diagnosticar problemas en los datos de entrada.Sin este registro, se perdería información
+valiosa sobre intentos fallidos
+
+Pregunta 4: El gate de calidad usa la regla accuracy_nuevo >= accuracy_anterior para decidir si
+activar el modelo. Con esta regla, un modelo nuevo que obtiene exactamente el mismo
+accuracy que el anterior sí se activa. ¿Crees que eso es correcto o debería usarse >
+estricto? Argumenta tu respuesta pensando en qué ocurre cuando el dataset de
+entrenamiento crece con muestras de buena calidad pero el accuracy se estabiliza cerca
+del máximo
+
+Antes de responder, conviene entender cómo funciona el gate de calidad en el código.
+Cuando se llama a POST /train, el servidor entrena un nuevo modelo con las muestras
+disponibles y evalúa su accuracy sobre un subconjunto de validación. Luego compara ese
+accuracy con el del modelo activo actual usando la condición:
+model_updated = (previous_accuracy is None) or (accuracy_new >=
+previous_accuracy)
+
+Si la condición se cumple, el nuevo modelo reemplaza al anterior y queda registrado como
+activado. Si no se cumple, el modelo se rechaza y el anterior sigue en producción. El
+operador >= significa que un modelo nuevo con exactamente el mismo accuracy que el
+anterior también se activa.
+
+La pregunta te pide que reflexiones sobre si ese >= es la elección correcta, o si debería ser
+un > estricto que solo activara el modelo cuando hay una mejora real. Para razonarlo,
+piensa en qué ocurre en la práctica cuando el dataset de entrenamiento crece
+progresivamente con muestras de buena calidad: ¿llega un momento en que el accuracy
+deja de subir aunque los datos sigan mejorando? ¿Qué significaría entonces que dos
+versiones consecutivas obtengan el mismo accuracy: que son igualmente buenos, o que
+uno podría ser mejor en aspectos que la métrica no captura? ¿Qué consecuencias tendría
+para el sistema usar > estricto en ese escenario?
+
+Respuesta: El operador >= es la elección correcta. Cuando el modelo sigue recibiendo datos de buena calidad,
+el accuracy tiende a estabilizarse cerca del máximo. En ese punto, un nuevo modelo con el mismo accuracy
+no es peor que el anterior, pero sí ha sido entrenado con datos más recientes, lo que puede hacerlo más robusto o
+mejor calibrado en aspectos que el accuracy no mide.
+
+Con > estricto, en cuanto el sistema se estabiliza cerca del máximo, ningún modelo volvería a activarse aunque los datos nuevos
+sigan aportando valor. El modelo quedaría "congelado" indefinidamente.
+
+Por tanto, >= es preferible: en el peor caso se activa un modelo equivalente, pero nunca uno peor. Si se quisiera
+más control, la solución no sería pasar a > estricto, sino añadir una política min_delta que exija una mejora mínima
+significativa, evitando tanto el congelamiento como las activaciones por ruido estadístico.

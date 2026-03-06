@@ -1,0 +1,15 @@
+Pregunta 1: ¿Cuántas versiones se han registrado?
+
+Se han registrado 3 versiones: v1.0-base, v2.0-a3dbd3 y v3.0-5c0cd9. 
+
+
+
+Pregunta 2: ¿Qué versiones fueron activadas y cuáles rechazadas?
+
+Fueron activadas las dos primeras, siendo la última (v3.0-5c0cd9) rechazada.
+
+
+
+Pregunta 3: ¿Por qué el modelo entrenado con muestras ruidosas fue rechazado?
+
+Porque su accuracy (0.60) fue menor que la del modelo activo (1), y el gate de calidad exige accuracy_new >= accuracy_anterior
