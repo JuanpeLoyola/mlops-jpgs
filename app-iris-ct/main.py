@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 
 # ---------------------------------------------------------------------------
@@ -64,6 +64,18 @@ class TrainRequest(BaseModel):
         False,
         description="Si True, ignora datos anteriores y entrena solo con las muestras enviadas"
     )
+    policy: str = Field(
+        "any_improvement",
+        description="Política de activación: 'any_improvement', 'min_delta' o 'per_class_f1'"
+    )
+    min_delta: float = Field(
+        0.02,
+        description="Mejora mínima requerida (solo aplica con policy='min_delta')"
+    )
+    target_class: Optional[int] = Field(
+        None,
+        description="Clase objetivo para evaluar F1 (solo aplica con policy='per_class_f1')"
+    )
 
 
 class PredictResponse(BaseModel):
@@ -88,6 +100,74 @@ class ModelInfo(BaseModel):
     n_training_samples: int
     algorithm: str
     history: List[dict]
+
+
+# ---------------------------------------------------------------------------
+# Política de activación configurable
+# ---------------------------------------------------------------------------
+
+class ActivationPolicy:
+    """Encapsula la lógica de decisión para activar o rechazar un modelo nuevo."""
+
+    def __init__(self, policy_type: str = "any_improvement",
+                 min_delta: float = 0.02, target_class: Optional[int] = None):
+        self.policy_type = policy_type
+        self.min_delta = min_delta
+        self.target_class = target_class
+
+    def should_activate(self, accuracy_new: float, accuracy_prev: Optional[float],
+                        y_val=None, y_pred_new=None, clf_prev=None, X_val=None) -> bool:
+        """Decide si el modelo nuevo debe activarse según la política configurada."""
+        if accuracy_prev is None:
+            return True
+
+        if self.policy_type == "any_improvement":
+            return accuracy_new >= accuracy_prev
+
+        elif self.policy_type == "min_delta":
+            return accuracy_new >= accuracy_prev + self.min_delta
+
+        elif self.policy_type == "per_class_f1":
+            if y_val is None or y_pred_new is None or clf_prev is None or X_val is None:
+                return accuracy_new >= accuracy_prev
+            y_pred_prev = clf_prev.predict(X_val)
+            labels = sorted(set(y_val) | set(y_pred_new) | set(y_pred_prev))
+            f1_new = f1_score(y_val, y_pred_new, labels=labels,
+                             average=None, zero_division=0)
+            f1_prev = f1_score(y_val, y_pred_prev, labels=labels,
+                               average=None, zero_division=0)
+            tc = self.target_class
+            if tc is not None and tc < len(f1_new):
+                return float(f1_new[tc]) > float(f1_prev[tc])
+            return accuracy_new >= accuracy_prev
+
+        return accuracy_new >= accuracy_prev
+
+    def get_reason(self, activated: bool, accuracy_new: float,
+                   accuracy_prev: Optional[float], **kwargs) -> str:
+        """Genera un mensaje explicativo de la decisión."""
+        if accuracy_prev is None:
+            return "Primer modelo, activado automáticamente."
+
+        if self.policy_type == "any_improvement":
+            if activated:
+                return f"Accuracy {accuracy_new:.4f} >= anterior ({accuracy_prev:.4f})"
+            return f"Accuracy {accuracy_new:.4f} < anterior ({accuracy_prev:.4f})"
+
+        elif self.policy_type == "min_delta":
+            delta = accuracy_new - accuracy_prev
+            if activated:
+                return (f"Mejora de {delta:.4f} >= delta mínimo ({self.min_delta})")
+            return (f"Mejora de {delta:.4f} < delta mínimo ({self.min_delta})")
+
+        elif self.policy_type == "per_class_f1":
+            f1_new_val = kwargs.get("f1_new", "?")
+            f1_prev_val = kwargs.get("f1_prev", "?")
+            if activated:
+                return (f"F1 clase {self.target_class}: {f1_new_val} > {f1_prev_val}")
+            return (f"F1 clase {self.target_class}: {f1_new_val} <= {f1_prev_val}")
+
+        return "Política desconocida"
 
 
 # ---------------------------------------------------------------------------
@@ -227,9 +307,10 @@ def train(request: TrainRequest):
                        for s in request.samples])
     new_y = np.array([s.label for s in request.samples])
 
-    # 2. Recuperar accuracy del modelo activo
+    # 2. Recuperar accuracy del modelo activo (último activado, no último del historial)
     history = load_history()
-    previous_accuracy = history[-1]["accuracy"] if history else None
+    active_entries = [h for h in history if h.get("activated", True)]
+    previous_accuracy = active_entries[-1]["accuracy"] if active_entries else None
 
     # 3. Construir dataset de entrenamiento
     data_file = MODELS_DIR / "accumulated_data.joblib"
@@ -253,41 +334,67 @@ def train(request: TrainRequest):
     # 5. Entrenar nuevo modelo
     clf_new = LogisticRegression(max_iter=300, random_state=42)
 
+    # Cargar modelo anterior (necesario para per_class_f1)
+    clf_prev = joblib.load(MODEL_PATH) if MODEL_PATH.exists() else None
+
     # Evaluación: si hay suficientes datos, usamos split; si no, evaluamos en train
     if len(X_train) >= 20:
         X_tr, X_val, y_tr, y_val = train_test_split(
             X_train, y_train, test_size=0.2, random_state=42
         )
         clf_new.fit(X_tr, y_tr)
-        accuracy_new = float(accuracy_score(y_val, clf_new.predict(X_val)))
+        y_pred_new = clf_new.predict(X_val)
+        accuracy_new = float(accuracy_score(y_val, y_pred_new))
         eval_note = f"validación con {len(X_val)} muestras"
     else:
         clf_new.fit(X_train, y_train)
-        accuracy_new = float(accuracy_score(y_train, clf_new.predict(X_train)))
+        X_val, y_val = X_train, y_train
+        y_pred_new = clf_new.predict(X_train)
+        accuracy_new = float(accuracy_score(y_train, y_pred_new))
         eval_note = "evaluación en train (dataset pequeño, < 20 muestras)"
 
     accuracy_new = round(accuracy_new, 4)
 
-    # 6. Decidir si activar el nuevo modelo
-    model_updated = (previous_accuracy is None) or (accuracy_new >= previous_accuracy)
+    # 6. Decidir si activar el nuevo modelo según la política configurada
+    policy = ActivationPolicy(
+        policy_type=request.policy,
+        min_delta=request.min_delta,
+        target_class=request.target_class
+    )
+
+    # Calcular F1 por clase si la política lo requiere
+    f1_info = {}
+    if request.policy == "per_class_f1" and clf_prev is not None:
+        y_pred_prev = clf_prev.predict(X_val)
+        labels = sorted(set(y_val) | set(y_pred_new) | set(y_pred_prev))
+        f1_new_arr = f1_score(y_val, y_pred_new, labels=labels,
+                              average=None, zero_division=0)
+        f1_prev_arr = f1_score(y_val, y_pred_prev, labels=labels,
+                               average=None, zero_division=0)
+        tc = request.target_class if request.target_class is not None else 0
+        if tc < len(f1_new_arr):
+            f1_info = {"f1_new": round(float(f1_new_arr[tc]), 4),
+                       "f1_prev": round(float(f1_prev_arr[tc]), 4)}
+
+    model_updated = policy.should_activate(
+        accuracy_new, previous_accuracy,
+        y_val=y_val, y_pred_new=y_pred_new,
+        clf_prev=clf_prev, X_val=X_val
+    )
 
     version = f"v{len(history) + 1}.0-{uuid.uuid4().hex[:6]}"
     status = "activado" if model_updated else "rechazado"
+    policy_reason = policy.get_reason(model_updated, accuracy_new,
+                                      previous_accuracy, **f1_info)
 
     if model_updated:
         joblib.dump(clf_new, MODEL_PATH)
         joblib.dump({"X": X_train, "y": y_train}, data_file)
-        message = (
-            f"Nuevo modelo activado. Accuracy {accuracy_new:.4f} "
-            f"{'(primer modelo)' if previous_accuracy is None else f'>= anterior ({previous_accuracy:.4f})'}"
-        )
+        message = f"Nuevo modelo activado. {policy_reason}"
     else:
-        message = (
-            f"Modelo NO activado. Accuracy {accuracy_new:.4f} < anterior ({previous_accuracy:.4f}). "
-            "El modelo activo se mantiene sin cambios."
-        )
+        message = f"Modelo NO activado. {policy_reason}"
 
-    # 7. Registrar en historial
+    # 7. Registrar en historial (incluyendo la política usada)
     history.append({
         "version": version,
         "trained_at": datetime.utcnow().isoformat() + "Z",
@@ -297,7 +404,9 @@ def train(request: TrainRequest):
         "source": source,
         "eval_note": eval_note,
         "status": status,
-        "activated": model_updated
+        "activated": model_updated,
+        "policy": request.policy,
+        "policy_reason": policy_reason
     })
     save_history(history)
 

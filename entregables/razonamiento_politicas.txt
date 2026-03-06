@@ -1,0 +1,52 @@
+Fase de razonamiento previo del ejercicio de programación
+---------------------------------------------------------
+
+Escenario 1: Detección de fraude bancario
+Los falsos negativos (fraude no detectado) son mucho más costosos que los falsos positivos.
+Política elegida: per_class_f1, enfocada en la clase "fraude".
+Justificación: El accuracy global puede ser alto simplemente prediciendo "no fraude" (clase
+mayoritaria). Lo importante es el F1-score de la clase fraude. Solo activamos el modelo si
+mejora en detectar fraude, aunque el accuracy global no suba.
+
+Escenario 2: Recomendación de películas
+El coste de error es bajo: el usuario simplemente ignora una mala recomendación.
+Política elegida: any_improvement (>=).
+Justificación: Cualquier mejora marginal es bienvenida. No hay riesgo, así que conviene
+tener siempre el modelo más actualizado posible.
+
+Escenario 3: Diagnóstico médico
+La estabilidad importa tanto como la precisión. Cambios frecuentes generan desconfianza.
+Política elegida: min_delta con umbral del 2%.
+Justificación: Solo activamos si hay una mejora real y sustancial, no ruido estadístico.
+Validar un modelo médico tiene coste alto, así que debe merecer la pena.
+
+
+Pseudocódigo de ActivationPolicy
+---------------------------------
+
+clase ActivationPolicy:
+    atributos:
+        policy_type: texto  -> "any_improvement" | "min_delta" | "per_class_f1"
+        min_delta: decimal   -> mejora mínima requerida (solo para min_delta, ej: 0.02)
+        target_class: entero -> clase objetivo (solo para per_class_f1, ej: 0)
+
+    método should_activate(accuracy_new, accuracy_prev, y_true, y_pred_new, y_pred_prev):
+
+        si policy_type == "any_improvement":
+            devolver accuracy_new >= accuracy_prev
+
+        si policy_type == "min_delta":
+            devolver accuracy_new >= accuracy_prev + min_delta
+
+        si policy_type == "per_class_f1":
+            f1_new = calcular_f1(y_true, y_pred_new, clase=target_class)
+            f1_prev = calcular_f1(y_true, y_pred_prev, clase=target_class)
+            devolver f1_new > f1_prev
+
+    método get_reason():
+        Genera un mensaje explicativo de por qué se activó o rechazó según la política.
+
+Parámetros por política:
+  - any_improvement: ninguno adicional
+  - min_delta: min_delta (float, ej: 0.02)
+  - per_class_f1: target_class (int, ej: 0 para setosa)

@@ -1,0 +1,49 @@
+[
+  {
+    "version": "v1.0-base",
+    "trained_at": "2026-03-06T21:50:13.816580Z",
+    "accuracy": 0.9667,
+    "n_training_samples": 120,
+    "algorithm": "LogisticRegression",
+    "source": "bootstrap (iris dataset completo)"
+  },
+  {
+    "version": "v2.0-58f298",
+    "trained_at": "2026-03-06T21:50:20.781637Z",
+    "accuracy": 1.0,
+    "n_training_samples": 20,
+    "algorithm": "LogisticRegression",
+    "source": "desde cero (20 muestras)",
+    "eval_note": "validaci\u00f3n con 4 muestras",
+    "status": "activado",
+    "activated": true,
+    "policy": "any_improvement",
+    "policy_reason": "Accuracy 1.0000 >= anterior (0.9667)"
+  },
+  {
+    "version": "v3.0-30c840",
+    "trained_at": "2026-03-06T21:50:20.886484Z",
+    "accuracy": 0.6,
+    "n_training_samples": 10,
+    "algorithm": "LogisticRegression",
+    "source": "desde cero (10 muestras)",
+    "eval_note": "evaluaci\u00f3n en train (dataset peque\u00f1o, < 20 muestras)",
+    "status": "rechazado",
+    "activated": false,
+    "policy": "any_improvement",
+    "policy_reason": "Accuracy 0.6000 < anterior (1.0000)"
+  },
+  {
+    "version": "v4.0-8ed28b",
+    "trained_at": "2026-03-06T21:50:50.337977Z",
+    "accuracy": 1.0,
+    "n_training_samples": 25,
+    "algorithm": "LogisticRegression",
+    "source": "incremental (+5 muestras nuevas, 20 anteriores)",
+    "eval_note": "validaci\u00f3n con 5 muestras",
+    "status": "rechazado",
+    "activated": false,
+    "policy": "min_delta",
+    "policy_reason": "Mejora de 0.0000 < delta m\u00ednimo (0.5)"
+  }
+]
