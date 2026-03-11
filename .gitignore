@@ -5,8 +5,12 @@
 mlflow.db
 mlruns/
 
-# Ficheros generados por los scripts (no son código)
+# Ficheros generados por los scripts (no son código fuente)
 last_model_uri.txt
+grid_results.csv
+test_results.csv
+X_test.npy
+y_test.npy
 
 # Python
 __pycache__/
