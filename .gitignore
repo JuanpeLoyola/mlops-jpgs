@@ -1,0 +1,30 @@
+# Entorno virtual
+.venv/
+
+# MLflow: base de datos y artefactos generados en ejecución
+mlflow.db
+mlruns/
+
+# Ficheros generados por los scripts (no son código)
+last_model_uri.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Datos sensibles / grandes (el CSV sí se sube, pero por si acaso)
+*.db-journal
+*.db-wal
+
+# IDEs
+.vscode/
+.idea/
+
+# UV
+uv.lock
