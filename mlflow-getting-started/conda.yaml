@@ -1,0 +1,17 @@
+name: mlflow-project-env
+channels:
+  - defaults
+  - conda-forge
+  - nvidia
+  - pytorch
+
+dependencies:
+  - python=3.11
+  - pip=24.2
+  - setuptools=75.1.0
+  - wheel=0.37.1
+  - pip:
+      - mlflow==3.10.0
+      - torch==2.6.0
+      - torchvision==0.21.0
+      - torchaudio==2.6.0
