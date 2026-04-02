@@ -39,8 +39,7 @@ services:
       - BACKEND_URL=http://backend:8000
     depends_on:
       backend:
-        # depends_on simple sólo espera a que el contenedor esté "iniciado".
-
+        condition: service_healthy
     restart: unless-stopped
 
 # ── Red interna ─────────────────────────────────────────────

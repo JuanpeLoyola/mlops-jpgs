@@ -1,0 +1,16 @@
+juanpe@juanpe-IdeaPad-3-15IIL05:~/personal/master/segundo_semestre/mlops-jpgs/backend-iris$ docker logs iris-backend 
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+[INFO] Descargando modelo 'iris_dt.joblib' desde 'brjapon/iris-dt'...
+[INFO] Modelo cargado correctamente.
+INFO:     172.17.0.1:37614 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.17.0.1:37614 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     172.17.0.1:38092 - "GET /health HTTP/1.1" 200 OK
+/usr/local/lib/python3.9/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but StandardScaler was fitted with feature names
+  warnings.warn(
+/usr/local/lib/python3.9/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but StandardScaler was fitted with feature names
+  warnings.warn(
+INFO:     172.17.0.1:57428 - "POST /predict HTTP/1.1" 200 OK

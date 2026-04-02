@@ -1,0 +1,4 @@
+juanpe@juanpe-IdeaPad-3-15IIL05:~/personal/master/segundo_semestre/mlops-jpgs$ docker ps
+CONTAINER ID   IMAGE                 COMMAND                  CREATED          STATUS         PORTS                                         NAMES
+71a468e62648   mlops-jpgs-frontend   "python gradio_app.py"   10 seconds ago   Up 9 seconds   0.0.0.0:7860->7860/tcp, [::]:7860->7860/tcp   iris-frontend
+efb487302ee6   mlops-jpgs-backend    "uvicorn main:app --…"   10 seconds ago   Up 9 seconds   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   iris-backend

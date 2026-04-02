@@ -1,0 +1,5 @@
+{
+  "prediction": 0,
+  "species": "setosa",
+  "confidence": 1
+}
