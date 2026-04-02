@@ -40,7 +40,7 @@ def load_model_background():
         import joblib
 
         hf_token = os.getenv("HF_TOKEN") # Only needed if the repo is private
-        repo_id  = os.getenv("HF_REPO_ID", "brjapon/iris-dt")
+        repo_id  = os.getenv("HF_REPO_ID", "Juanpeg1729/iris26")
         filename = os.getenv("HF_MODEL_FILE", "iris_dt.joblib")
 
         print(f"[INFO] Descargando modelo '{filename}' desde '{repo_id}'...")
